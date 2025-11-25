@@ -8,29 +8,25 @@
 #  - save output to ./data dir     #
 ####################################
 
-
 #
 # Set some parameters ---------------------------------------------------
 #
 
 # Which participant?
 form Select a participant
-	sentence fileID bi01
+    sentence fileID bi01
 endform
 
 # Where to save data
 outputDir$ = "../data/"
 
 # Choose name for .csv file
-outFile$ = fileID$+".csv"
+outFile$ = fileID$ + ".csv"
 
 # Where are the .wav and textgrid files located?
-filePath$ = "../recordings/"+fileID$+"/wavs/"
+filePath$ = "../recordings/" + fileID$ + "/wavs/"
 
-# -----------------------------------------------------------------------
-
-
-
+# ----------------------------------------------------------------------
 
 
 
@@ -39,16 +35,12 @@ filePath$ = "../recordings/"+fileID$+"/wavs/"
 #
 
 # Delete current file if it exists
-filedelete 'outputDir$'/'outFile$'
+filedelete 'outputDir$''outFile$'
 
-# Create newfile with header
-fileappend 'outputDir$'/'outFile$' fileID,f1,f2,vot,notes'newline$'
+# Create new file with header
+fileappend 'outputDir$''outFile$' "fileID,f1,f2,vot,notes"'newline$'
 
-# -----------------------------------------------------------------------
-
-
-
-
+# ----------------------------------------------------------------------
 
 
 
@@ -56,13 +48,11 @@ fileappend 'outputDir$'/'outFile$' fileID,f1,f2,vot,notes'newline$'
 # Prepare loop ----------------------------------------------------------
 #
 
-Create Strings as file list... dirFiles 'filePath$'/*.wav
+Create Strings as file list... dirFiles 'filePath$'*.wav
 select Strings dirFiles
 numberOfFiles = Get number of strings
 
-# -----------------------------------------------------------------------
-
-
+# ----------------------------------------------------------------------
 
 
 
@@ -70,55 +60,56 @@ numberOfFiles = Get number of strings
 # Start loop ------------------------------------------------------------
 #
 
-#for file to numberOfFiles
-	select Strings dirFiles
-	fileName$ = Get string: file
-	prefix$ = fileName$ - ".wav"
-	Read from file... 'filePath$'/'prefix$'.wav
-	Read from file... 'filePath$'/'prefix$'.TextGrid
-	points = Get number of points... 1
-	labels = Count labels: 4, "exclude"
-	labID$ = Get label of interval: 4, 1
+for file from 1 to numberOfFiles
+    select Strings dirFiles
+    fileName$ = Get string... file
+    prefix$ = fileName$ - ".wav"
 
-	if labels = 0
+    # Read sound and TextGrid
+    Read from file... 'filePath$''prefix$'.wav
+    Read from file... 'filePath$''prefix$'.TextGrid
 
-		# Calculate vot 
-		if points = 1
-		voicing = Get time of point... 2 1
-		release = Get time of point... 1 1
-		vot = (voicing - release) * 1000
-		window = release + 0.025
+    # At this point the selected object is the TextGrid
+    points = Get number of points... 1
+    labels = Count labels: 4, "exclude"
+    labID$ = Get label of interval: 4, 1
 
-		# Calculate mid-point of vowel 
-		vowelStart = Get start point: 3, 2
-		vowelEnd  = Get end point: 3, 3
-		durationV =  vowelEnd - vowelStart
-		mp = vowelStart + (durationV * 0.50)
+    if labels = 0
+        # Calculate VOT if there is 1 point per tier
+        if points = 1
+            voicing = Get time of point... 2 1
+            release = Get time of point... 1 1
+            vot = (voicing - release) * 1000
+            window = release + 0.025
 
-		# Get formants
-		select Sound 'prefix$'
-		do ("To Formant (burg)...", 0, 5, 5500, 0.025, 50)
-		f1 = do ("Get value at time...", 1, mp, "Hertz", "Linear")
-		f2 = do ("Get value at time...", 2, mp, "Hertz", "Linear")
+            # Calculate mid-point of vowel
+            vowelStart = Get start point: 3, 2
+            vowelEnd  = Get end point: 3, 3
+            durationV = vowelEnd - vowelStart
+            mp = vowelStart + (durationV * 0.50)
 
-	endif
+            # Get formants
+            select Sound 'prefix$'
+            do ("To Formant (burg)...", 0, 5, 5500, 0.025, 50)
+            f1 = do ("Get value at time...", 1, mp, "Hertz", "Linear")
+            f2 = do ("Get value at time...", 2, mp, "Hertz", "Linear")
+        endif
 
-	# Append data to output 
-	fileappend 'outputDir$'/'fileID$'.csv 'prefix$','f1:2','f2:2','vot:2','labID$''newline$'
+        # Append data to output
+        fileappend 'outputDir$''outFile$' 'prefix$','f1:2','f2:2','vot:2','labID$''newline$'
 
-	# Printline for bug fixes
-	printline 'prefix$','f1:2','f2:2','vot:2','labID$'
+        # Printline for debugging
+        printline 'prefix$','f1:2','f2:2','vot:2','labID$'
+    endif
 
-	# Clean up
-	select all
-	minus Strings dirFiles
-	Remove
-	endif
+    # Clean up sound and TextGrid, keep Strings
+    select all
+    minus Strings dirFiles
+    Remove
+
 endfor
 
-# -----------------------------------------------------------------------
-
-
-# Clean up
+# Final clean up
 select all
 Remove
+
